@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pro Flashlight Controller</title>
+    <style>
+        /* ASOSIY DIZAYN */
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background: radial-gradient(circle, #1a1a2e 0%, #0f0f1b 100%);
+            font-family: 'Segoe UI', sans-serif;
+            color: white;
+            overflow: hidden;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(15px);
+            padding: 40px;
+            border-radius: 30px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            text-align: center;
+            width: 320px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* Lampa Ikonkasi */
+        .light-bulb {
+            font-size: 100px;
+            margin-bottom: 20px;
+            filter: grayscale(100%);
+            transition: all 0.4s ease;
+            cursor: default;
+            user-select: none;
+        }
+
+        .active-bulb {
+            filter: grayscale(0%);
+            text-shadow: 0 0 40px #ffcc00, 0 0 80px #ffcc00;
+            transform: scale(1.1);
+        }
+
+        /* Tugma dizayni */
+        .power-btn {
+            background: linear-gradient(135deg, #ff416c, #ff4b2b);
+            border: none;
+            color: white;
+            padding: 15px 40px;
+            font-size: 20px;
+            font-weight: bold;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 10px 20px rgba(255, 65, 108, 0.3);
+            transition: 0.3s;
+            width: 100%;
+        }
+
+        .power-btn:active {
+            transform: scale(0.95);
+        }
+
+        .btn-off {
+            background: linear-gradient(135deg, #434343, #000000);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Slider (Nur quvvati) */
+        .slider-box {
+            margin-top: 40px;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: 0.5s;
+            pointer-events: none;
+        }
+
+        .slider-box.visible {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: all;
+        }
+
+        input[type=range] {
+            width: 100%;
+            height: 8px;
+            border-radius: 5px;
+            background: #444;
+            outline: none;
+            -webkit-appearance: none;
+            margin-top: 15px;
+        }
+
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 25px;
+            height: 25px;
+            background: #ffcc00;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 0 10px #ffcc00;
+        }
+
+        label {
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #aaa;
+        }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <div id="bulbIcon" class="light-bulb">💡</div>
+    
+    <button id="mainBtn" class="power-btn">YOQISH</button>
+
+    <div id="controls" class="slider-box">
+        <label>Yorqinlik: <span id="val">100</span>%</label>
+        <input type="range" id="brightness" min="0" max="100" value="100">
+    </div>
+</div>
+
+<script>
+    let videoTrack = null;
+    const mainBtn = document.getElementById('mainBtn');
+    const bulbIcon = document.getElementById('bulbIcon');
+    const controls = document.getElementById('controls');
+    const brightnessSlider = document.getElementById('brightness');
+    const valDisplay = document.getElementById('val');
+
+    // Chiroqni boshqarish funksiyasi
+    async function toggleFlashlight() {
+        try {
+            // Agar trek bo'lmasa, kameraga ulanish
+            if (!videoTrack) {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'environment' }
+                });
+                videoTrack = stream.getVideoTracks()[0];
+            }
+
+            const settings = videoTrack.getSettings();
+            const capabilities = videoTrack.getCapabilities();
+
+            // Chiroq holatini tekshirish
+            const isCurrentlyOn = settings.torch || false;
+            const targetState = !isCurrentlyOn;
+
+            // Chiroqni yoqish/o'chirish
+            if (capabilities.torch) {
+                await videoTrack.applyConstraints({
+                    advanced: [{ torch: targetState }]
+                });
+
+                updateUI(targetState);
+            } else {
+                alert("Kechirasiz, qurilmangiz chirog'ini brauzer orqali boshqarib bo'lmaydi.");
+            }
+
+        } catch (error) {
+            console.error(error);
+            alert("Xatolik yuz berdi. Kameraga ruxsat berilganini tekshiring.");
+        }
+    }
+
+    // Interfeysni yangilash
+    function updateUI(isOn) {
+        if (isOn) {
+            mainBtn.innerText = "O'CHIRISH";
+            mainBtn.classList.add('btn-off');
+            bulbIcon.classList.add('active-bulb');
+            controls.classList.add('visible');
+        } else {
+            mainBtn.innerText = "YOQISH";
+            mainBtn.classList.remove('btn-off');
+            bulbIcon.classList.remove('active-bulb');
+            controls.classList.remove('visible');
+        }
+    }
+
+    // Nur quvvatini o'zgartirish (Faqat ba'zi Androidlarda ishlaydi)
+    brightnessSlider.addEventListener('input', async () => {
+        valDisplay.innerText = brightnessSlider.value;
+        if (videoTrack) {
+            try {
+                // Eslatma: 'brightness' drayver darajasida qo'llab-quvvatlanishi kerak
+                await videoTrack.applyConstraints({
+                    advanced: [{ brightness: brightnessSlider.value }]
+                });
+            } catch (e) {
+                console.log("Yorqinlikni sozlash qo'llab-quvvatlanmaydi.");
+            }
+        }
+    });
+
+    mainBtn.addEventListener('click', toggleFlashlight);
+
+</script>
+
+</body>
+</html>
